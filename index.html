@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      canvas {
+        cursor: pointer;
+        border: 1px solid black; /* Agregar contorno a canvas */
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <p id="coordenadas" style="position: fixed; top: 10px; left: 10px"></p>
+    <p id="contador" style="position: fixed; top: 10px; right: 10px"></p>
+    <!-- Contador de círculos eliminados -->
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Obtiene las dimensiones de la pantalla actual
+      const window_height = window.innerHeight;
+      const window_width = window.innerWidth;
+
+      canvas.height = window_height;
+      canvas.width = window_width;
+
+      canvas.style.background = "#ff8";
+
+      class Circle {
+        constructor(x, y, radius, color, speed, angle) {
+          this.posX = x;
+          this.posY = y;
+          this.radius = radius;
+          this.color = color;
+          this.originalColor = color; // Guarda el color original
+          this.speed = speed;
+          this.angle = angle;
+
+          this.dx = Math.cos(this.angle) * this.speed;
+          this.dy = Math.sin(this.angle) * this.speed;
+        }
+
+        draw(context) {
+          context.beginPath();
+          context.strokeStyle = "black"; // Color del contorno
+          context.fillStyle = this.color;
+          context.arc(this.posX, this.posY, this.radius, 0, Math.PI * 2, false);
+          context.fill();
+          context.stroke(); // Dibujar el contorno
+          context.closePath();
+        }
+
+        update() {
+          this.posX += this.dx;
+          this.posY += this.dy;
+
+          // Colisión con los bordes
+          if (
+            this.posX + this.radius >= window_width ||
+            this.posX - this.radius <= 0
+          ) {
+            this.dx = -this.dx;
+          }
+          if (
+            this.posY + this.radius >= window_height ||
+            this.posY - this.radius <= 0
+          ) {
+            this.dy = -this.dy;
+          }
+        }
+
+        // Método para verificar si hay colisión con otro círculo
+        checkCollision(otherCircle) {
+          const dx = this.posX - otherCircle.posX;
+          const dy = this.posY - otherCircle.posY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          return distance < this.radius + otherCircle.radius;
+        }
+
+        // Método para calcular el ángulo de colisión con otro círculo
+        collisionAngle(otherCircle) {
+          return Math.atan2(
+            this.posY - otherCircle.posY,
+            this.posX - otherCircle.posX
+          );
+        }
+
+        // Cambiar dirección al chocar con otro círculo
+        changeDirection(angle) {
+          this.angle = angle;
+          this.dx = Math.cos(this.angle) * this.speed;
+          this.dy = Math.sin(this.angle) * this.speed;
+        }
+
+        // Cambiar a color rojo
+        turnRed() {
+          this.color = "red";
+        }
+
+        // Restaurar color original
+        restoreColor() {
+          this.color = this.originalColor;
+        }
+      }
+
+      // Crear un arreglo para almacenar los círculos
+      let circles = [];
+      let deletedCount = 0; // Contador de círculos eliminados
+
+      // Función para generar círculos aleatorios
+      function generateRandomCircle() {
+        let randomX = Math.random() * (window_width - 100) + 50;
+        let randomY = Math.random() * (window_height - 100) + 50;
+        let randomRadius = Math.floor(Math.random() * 50 + 20);
+        let randomColor = `rgba(${Math.floor(
+          Math.random() * 256
+        )}, ${Math.floor(Math.random() * 256)}, ${Math.floor(
+          Math.random() * 256
+        )}, 0.7)`; // Grosor más tenue
+        let randomSpeed = Math.random() * 2 + 1; // Velocidad aleatoria entre 1 y 3
+        let randomAngle = Math.random() * Math.PI * 2; // Ángulo aleatorio entre 0 y 2π
+        let newCircle = new Circle(
+          randomX,
+          randomY,
+          randomRadius,
+          randomColor,
+          randomSpeed,
+          randomAngle
+        );
+        circles.push(newCircle);
+      }
+
+      // Generar 5 círculos iniciales
+      for (let i = 0; i < 5; i++) {
+        generateRandomCircle();
+      }
+
+      // Función para actualizar el movimiento de los círculos y verificar colisiones
+      let updateCircle = function () {
+        requestAnimationFrame(updateCircle);
+        ctx.clearRect(0, 0, window_width, window_height);
+
+        // Actualizar y dibujar todos los círculos
+        circles.forEach((circle) => {
+          circle.update();
+          circle.draw(ctx);
+
+          // Verificar colisión con otros círculos
+          circles.forEach((otherCircle) => {
+            if (circle !== otherCircle && circle.checkCollision(otherCircle)) {
+              circle.turnRed();
+              otherCircle.turnRed();
+              circle.changeDirection(
+                circle.collisionAngle(otherCircle) + Math.PI
+              );
+              otherCircle.changeDirection(otherCircle.collisionAngle(circle));
+              setTimeout(() => {
+                // Restaurar color después de un tiempo
+                circle.restoreColor();
+                otherCircle.restoreColor();
+              }, 1000);
+            }
+          });
+        });
+      };
+
+      // Iniciar el bucle de actualización
+      updateCircle();
+
+      // Mostrar las coordenadas del mouse en tiempo real
+      canvas.addEventListener("mousemove", function (event) {
+        var rect = canvas.getBoundingClientRect();
+        var x = event.clientX - rect.left;
+        var y = event.clientY - rect.top;
+        document.getElementById("coordenadas").innerText =
+          "Coordenadas X: " + x + ", Y: " + y;
+      });
+
+      // Eliminar círculo al hacer clic sobre él
+      canvas.addEventListener("click", function (event) {
+        var rect = canvas.getBoundingClientRect();
+        var x = event.clientX - rect.left;
+        var y = event.clientY - rect.top;
+        let indexToRemove = -1;
+
+        // Buscar el círculo clickeado
+        circles.forEach((circle, index) => {
+          if (
+            Math.sqrt(
+              Math.pow(x - circle.posX, 2) + Math.pow(y - circle.posY, 2)
+            ) < circle.radius
+          ) {
+            indexToRemove = index;
+          }
+        });
+
+        // Eliminar el círculo y actualizar el contador
+        if (indexToRemove !== -1) {
+          circles.splice(indexToRemove, 1);
+          deletedCount++;
+          document.getElementById("contador").innerText =
+            "Círculos eliminados: " + deletedCount;
+        }
+      });
+    </script>
+  </body>
+</html>
